@@ -3,19 +3,11 @@ use pulldown_cmark::{Parser, Event};
 
 #[tokio::main]
 async fn main() {
-    let markdown_content = "# Hello\n\nThis is **bold** text.";
-    let parser = Parser::new(markdown_content);
-
-    for event in parser {
-        match event {
-            Event::Start(tag) => println!("Start: {:?}", tag),
-            Event::End(tag) => println!("End: {:?}", tag),
-            Event::Text(text) => println!("Text: {}", text),
-            Event::Code(code) => println!("Code: {}", code),
-            Event::SoftBreak => println!("SoftBreak"),
-            Event::HardBreak => println!("HardBreak"),
-            _ => {}
-        }
+    let markdown_content = read_markdown_file("schedules/schedule.md");
+    let tasks = parse_tasks(&markdown_content);
+    
+    for task in tasks {
+        println!("{}", task);
     }
 }
 
@@ -34,4 +26,22 @@ pub fn parse_markdown(content: &str) -> Vec<String> {
     }
 
     texts
+}
+
+pub fn parse_tasks(content: &str) -> Vec<String> {
+    let mut tasks = Vec::new();
+    let lines: Vec<&str> = content.lines().collect();
+    
+    for line in lines {
+        if line.starts_with("- [") {
+            let task_text = line.split("] ")
+                .nth(1)
+                .unwrap_or("");
+            if !task_text.is_empty() {
+                tasks.push(task_text.to_string());
+            }
+        }
+    }
+    
+    tasks
 }
