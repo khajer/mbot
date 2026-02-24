@@ -2,13 +2,13 @@ use std::fs;
 use std::net::SocketAddr;
 
 use axum::{
-    routing::{get, post},
     Json, Router,
+    routing::{get, post},
 };
 use chrono::Local;
 use pulldown_cmark::{Event, Parser};
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{info, Level};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
@@ -21,12 +21,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sched = JobScheduler::new().await?;
 
     let job1 = Job::new("0 * * * * *", |_uuid, _l| {
-        info!("Cron job runs every minute: {}", Local::now().format("%Y-%m-%d %H:%M:%S"));
+        info!(
+            "Cron job runs every minute: {}",
+            Local::now().format("%Y-%m-%d %H:%M:%S")
+        );
     })?;
     sched.add(job1).await?;
 
     let job2 = Job::new_repeated(std::time::Duration::from_secs(30), |_uuid, _l| {
-        info!("Repeated job every 30 seconds: {}", Local::now().format("%Y-%m-%d %H:%M:%S"));
+        info!(
+            "Repeated job every 30 seconds: {}",
+            Local::now().format("%Y-%m-%d %H:%M:%S")
+        );
     })?;
     sched.add(job2).await?;
 
@@ -34,6 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .route("/", get(root))
+        .route("/version", get(get_version))
         .route("/tasks", get(get_tasks))
         .route("/tasks", post(add_task));
 
@@ -48,6 +55,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn root() -> &'static str {
     "mbot is running"
+}
+
+async fn get_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
 }
 
 async fn get_tasks() -> Json<Vec<String>> {
