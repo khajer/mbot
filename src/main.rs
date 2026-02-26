@@ -115,6 +115,6 @@ pub fn parse_tasks(content: &str) -> Vec<Task> {
             }
         }
     }
-    
+
     tasks
 }
