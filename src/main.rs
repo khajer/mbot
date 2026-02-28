@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::interval;
+use tracing::info;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Task {
@@ -43,7 +44,8 @@ impl std::fmt::Display for Task {
 
 #[tokio::main]
 async fn main() {
-    println!("mbot scheduler started. Press Ctrl+C to stop.\n");
+    tracing_subscriber::fmt::init();
+    info!("mbot scheduler started");
 
     let reminded = Arc::new(RwLock::new(HashSet::<String>::new()));
     let mut ticker = interval(Duration::from_secs(60));
@@ -80,9 +82,8 @@ async fn main() {
             };
 
             if should_remind {
-                println!("\n⏰ REMINDER: {}", task.description);
-                println!(
-                    "   Scheduled: {} {}\n",
+                info!(target: "reminder", "REMINDER: {} | Scheduled: {} {}",
+                    task.description,
                     task.date,
                     task.time.as_deref().unwrap_or("all-day")
                 );
