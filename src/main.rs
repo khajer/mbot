@@ -1,10 +1,9 @@
 use chrono::{Local, NaiveDate, NaiveDateTime, Timelike};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use regex::Regex;
 use sqlx::SqlitePool;
 use std::collections::HashSet;
 use std::fs;
-use std::io::{self, BufRead};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -15,7 +14,15 @@ use tracing::info;
 #[command(name = "mbot")]
 #[command(version = "0.1.0")]
 #[command(about = "A scheduler bot", long_about = None)]
-struct Cli {}
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    List,
+}
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Task {
@@ -72,90 +79,83 @@ impl std::fmt::Display for Agent {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _cli = Cli::parse();
-
-    tracing_subscriber::fmt::init();
-    info!("mbot scheduler started");
+    let cli = Cli::parse();
 
     let pool = SqlitePool::connect("sqlite:agents.sqlite").await?;
-    info!("Connected to database");
 
-    let reminded = Arc::new(RwLock::new(HashSet::<String>::new()));
-    let reminded_clone = Arc::clone(&reminded);
-    let pool_clone = pool.clone();
-
-    tokio::spawn(async move {
-        let mut ticker = interval(Duration::from_secs(60));
-
-        loop {
-            ticker.tick().await;
-
-            let tasks = parse_tasks(&read_markdown_file("schedules/schedule.md"));
-            let now = Local::now().naive_local();
-            let today = now.date();
-            let current_time = now.time();
-
-            let mut reminded_guard = reminded_clone.write().await;
-
-            for task in tasks {
-                if task.completed {
-                    continue;
-                }
-
-                let key = task.unique_key();
-
-                if reminded_guard.contains(&key) {
-                    continue;
-                }
-
-                let should_remind = match task.datetime() {
-                    Some(task_dt) => {
-                        let diff = (task_dt - now).num_seconds();
-                        (0..60).contains(&diff)
+    match &cli.command {
+        Some(Commands::List) => match list_agents(&pool).await {
+            Ok(agents) => {
+                if agents.is_empty() {
+                    println!("No agents found in database.");
+                } else {
+                    println!("\n=== Agents ===");
+                    for agent in agents {
+                        println!("{}", agent);
                     }
-                    None => {
-                        task.date == today && current_time.hour() == 9 && current_time.minute() == 0
-                    }
-                };
-
-                if should_remind {
-                    info!(target: "reminder", "REMINDER: {} | Scheduled: {} {}",
-                        task.description,
-                        task.date,
-                        task.time.as_deref().unwrap_or("all-day")
-                    );
-                    reminded_guard.insert(key);
+                    println!("==============\n");
                 }
             }
-        }
-    });
+            Err(e) => eprintln!("Error listing agents: {}", e),
+        },
+        None => {
+            tracing_subscriber::fmt::init();
+            info!("mbot scheduler started");
+            info!("Connected to database");
 
-    let stdin = io::stdin();
-    info!("Type 'list' to show agents, 'quit' to exit");
+            let reminded = Arc::new(RwLock::new(HashSet::<String>::new()));
+            let reminded_clone = Arc::clone(&reminded);
 
-    for line in stdin.lock().lines() {
-        let input = line?.trim().to_lowercase();
+            tokio::spawn(async move {
+                let mut ticker = interval(Duration::from_secs(60));
 
-        if input == "list" {
-            match list_agents(&pool_clone).await {
-                Ok(agents) => {
-                    if agents.is_empty() {
-                        println!("No agents found in database.");
-                    } else {
-                        println!("\n=== Agents ===");
-                        for agent in agents {
-                            println!("{}", agent);
+                loop {
+                    ticker.tick().await;
+
+                    let tasks = parse_tasks(&read_markdown_file("schedules/schedule.md"));
+                    let now = Local::now().naive_local();
+                    let today = now.date();
+                    let current_time = now.time();
+
+                    let mut reminded_guard = reminded_clone.write().await;
+
+                    for task in tasks {
+                        if task.completed {
+                            continue;
                         }
-                        println!("==============\n");
+
+                        let key = task.unique_key();
+
+                        if reminded_guard.contains(&key) {
+                            continue;
+                        }
+
+                        let should_remind = match task.datetime() {
+                            Some(task_dt) => {
+                                let diff = (task_dt - now).num_seconds();
+                                (0..60).contains(&diff)
+                            }
+                            None => {
+                                task.date == today
+                                    && current_time.hour() == 9
+                                    && current_time.minute() == 0
+                            }
+                        };
+
+                        if should_remind {
+                            info!(target: "reminder", "REMINDER: {} | Scheduled: {} {}",
+                                task.description,
+                                task.date,
+                                task.time.as_deref().unwrap_or("all-day")
+                            );
+                            reminded_guard.insert(key);
+                        }
                     }
                 }
-                Err(e) => eprintln!("Error listing agents: {}", e),
-            }
-        } else if input == "quit" || input == "exit" {
+            });
+
+            tokio::signal::ctrl_c().await?;
             info!("Shutting down...");
-            break;
-        } else if !input.is_empty() {
-            println!("Unknown command. Type 'list' to show agents, 'quit' to exit");
         }
     }
 
