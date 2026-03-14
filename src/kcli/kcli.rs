@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 #[command(name = "kcli")]
 #[command(author = "kagents")]
 #[command(version)]
-#[command(about = "KAgents CLI - A task scheduler and runner", long_about = None)]
+#[command(about = "KAgents CLI ", long_about = None)]
 #[command(arg_required_else_help = true)]
 struct Cli {
     #[command(subcommand)]
@@ -13,26 +13,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Start the scheduler daemon")]
-    Start,
-
-    #[command(about = "Run a specific task")]
-    Run {
-        #[arg(short, long, help = "Task name or ID to run")]
-        task: String,
-    },
-
-    #[command(about = "List all scheduled tasks")]
-    List {
-        #[arg(short, long, help = "Show all tasks including completed")]
-        all: bool,
-    },
-
     #[command(about = "Show task or system status")]
     Status {
         #[arg(short, long, help = "Task name or ID")]
         task: Option<String>,
     },
+
 }
 
 #[tokio::main]
@@ -42,19 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Start) => {
-            println!("Starting scheduler daemon...");
-        }
-        Some(Commands::Run { task }) => {
-            println!("Running task: {}", task);
-        }
-        Some(Commands::List { all }) => {
-            if all {
-                println!("Listing all tasks (including completed)...");
-            } else {
-                println!("Listing pending tasks...");
-            }
-        }
+
         Some(Commands::Status { task }) => {
             if let Some(t) = task {
                 println!("Status for task: {}", t);
@@ -68,4 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+async fn check_server_open() -> bool {
+    tokio::net::TcpStream::connect("127.0.0.1:6411").await.is_ok()
 }
