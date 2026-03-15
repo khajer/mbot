@@ -30,6 +30,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
 
         Some(Commands::Status { task }) => {
+            if check_server_open().await != true {
+                println!("the server doesn't run.");
+
+                return Ok(())
+            }
             if let Some(t) = task {
                 println!("Status for task: {}", t);
             } else {
