@@ -19,6 +19,11 @@ enum Commands {
         #[arg(short, long, help = "Task name or ID")]
         task: Option<String>,
     },
+    #[command(about = "list agents work")]
+    List {
+        #[arg(short, long, help = "Task name or ID")]
+        task: Option<String>,
+    },
 
 }
 
@@ -44,6 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("System status: OK");
             }
+        }
+        Some(Commands::List { task: _ }) => {
+            println!("list agent works ");
         }
         None => {
             println!("Use 'kcli --help' for usage information.");
