@@ -87,6 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let app = Router::new()
         .route("/ping", get(ping_handler))
         .route("/list", get(list_handler))
+        .route("/process", get(process_handler))
         .route("/add", post(add_agent_handler))
         .route("/remove", delete(remove_agent_handler))
         .with_state(pool);
@@ -108,6 +109,21 @@ async fn ping_handler() -> impl IntoResponse {
 }
 
 async fn list_handler(State(pool): State<SqlitePool>) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
+    match list_agents(&pool).await {
+        Ok(agents) => Ok(Json(ListResponse { agents })),
+        Err(e) => {
+            error!("Failed to list agents: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to list agents: {}", e),
+                }),
+            ))
+        }
+    }
+}
+
+async fn process_handler(State(pool): State<SqlitePool>) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
     match list_agents(&pool).await {
         Ok(agents) => Ok(Json(ListResponse { agents })),
         Err(e) => {
