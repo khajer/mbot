@@ -15,10 +15,7 @@ fn get_server_url() -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     dotenv().ok();
-
-
     tracing_subscriber::fmt::init();
 
     let server_url = get_server_url();
@@ -28,7 +25,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("the server doesn't run.");
         return Ok(())
     }
+    process_command_line(cli, &server_url).await;
 
+    Ok(())
+}
+
+async fn process_command_line(cli: Cli, server_url: &str) {
     match cli.command {
         Some(Commands::Status { task }) => {
             if let Some(t) = task {
@@ -64,86 +66,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Use 'kcli --help' for usage information.");
         }
     }
-    Ok(())
 }
-
-
-// #[derive(Deserialize)]
-// struct ListResponse {
-//     agents: Vec<Agent>,
-// }
-
-// #[derive(Serialize)]
-// struct CreateAgentRequest {
-//     name: String,
-//     token: String,
-//     model: String,
-// }
-
-// #[derive(Deserialize)]
-// struct CreateAgentResponse {
-//     id: i64,
-//     message: String,
-// }
-
-// #[derive(Serialize)]
-// struct RemoveAgentRequest {
-//     id: i64,
-// }
-
-// #[derive(Deserialize)]
-// struct RemoveAgentResponse {
-//     message: String,
-// }
-// async fn send_list() {
-//     let server_url = get_server_url();
-//     match reqwest::get(format!("{}/list", server_url)).await {
-//         Ok(response) => match response.json::<ListResponse>().await {
-//             Ok(list_response) => {
-//                 if list_response.agents.is_empty() {
-//                     println!("No agents found.");
-//                 } else {
-//                     for agent in list_response.agents {
-//                         println!("{}", agent);
-//                     }
-//                 }
-//             }
-//             Err(e) => eprintln!("Failed to parse response: {}", e),
-//         },
-//         Err(e) => eprintln!("Failed to connect to server: {}", e),
-//     }
-// }
-
-// async fn add_agent_request(name: &str, token: &str, model: &str) -> Result<CreateAgentResponse, Box<dyn std::error::Error>> {
-//     let server_url = get_server_url();
-//     let client = reqwest::Client::new();
-//     let request_body = CreateAgentRequest {
-//         name: name.to_string(),
-//         token: token.to_string(),
-//         model: model.to_string(),
-//     };
-
-//     let response = client
-//         .post(format!("{}/add", server_url))
-//         .json(&request_body)
-//         .send()
-//         .await?;
-
-//     let create_response = response.json::<CreateAgentResponse>().await?;
-//     Ok(create_response)
-// }
-
-// async fn remove_agent_request(id: i64) -> Result<RemoveAgentResponse, Box<dyn std::error::Error>> {
-//     let server_url = get_server_url();
-//     let client = reqwest::Client::new();
-//     let request_body = RemoveAgentRequest { id };
-
-//     let response = client
-//         .delete(format!("{}/remove", server_url))
-//         .json(&request_body)
-//         .send()
-//         .await?;
-
-//     let remove_response = response.json::<RemoveAgentResponse>().await?;
-//     Ok(remove_response)
-// }
