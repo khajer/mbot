@@ -8,8 +8,7 @@ use tracing::{error, info};
 use crate::db_func;
 
 const AGENTS_FOLDER: &str = "workspace";
-
-
+const MSG_SUCCESS: &str = "Agent created successfully";
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Agent {
     pub id: i64,
@@ -142,7 +141,7 @@ pub async fn add_agent_handler(
 
             Ok(Json(CreateAgentResponse {
                 id: query_result.last_insert_rowid(),
-                message: "Agent created successfully".to_string(),
+                message: MSG_SUCCESS.to_string(),
             }))
         }
         Err(e) => {
@@ -174,8 +173,6 @@ pub async fn remove_agent_handler(
             }
 
             let delete_result = db_func::delete_agent_by_id(&pool, payload.id).await;
-
-
             match delete_result {
                 Ok(_) => {
                     Ok(Json(RemoveAgentResponse {

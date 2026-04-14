@@ -8,18 +8,17 @@ const SQL_SELECT_AGENT_ALL: &str = "SELECT id, name, token, model, status, creat
 const SQL_SELECT_AGENT_BY_ID: &str = "SELECT id, name, token, model, status, created_at FROM agents WHERE id = ?";
 const SQL_DELETE_AGENT_BY_ID: &str = "DELETE FROM agents WHERE id = ?";
 const SQL_INSERT_AGENT: &str = "INSERT INTO agents (name, token, model, status, created_at) VALUES (?, ?, ?, ?, ?)";
+const SQL_CREATE_AGENT_TABLE: &str = "CREATE TABLE IF NOT EXISTS agents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    token TEXT NOT NULL,
+    model TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL
+)";
 
 pub async fn create_table_if_not_exists(pool: &SqlitePool) -> Result<(), Box<dyn Error>> {
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS agents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            token TEXT NOT NULL,
-            model TEXT NOT NULL,
-            status TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )"
-    )
+    sqlx::query(SQL_CREATE_AGENT_TABLE)
     .execute(pool)
     .await?;
 
