@@ -29,8 +29,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::fs::File::create(SQLITE_FILENAME)?;
     }
     let pool = SqlitePool::connect(SQLITE_CONN).await?;
-    info!("Connected to database");
-
     create_table_if_not_exists(&pool).await?;
     info!("Database table initialized");
 

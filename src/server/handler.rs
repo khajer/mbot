@@ -8,7 +8,7 @@ use tracing::{error, info};
 use crate::db_func;
 
 const AGENTS_FOLDER: &str = "workspace";
-
+const MSG_SUCCESS: &str = "Agent created successfully";
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Agent {
     pub id: i64,
@@ -131,37 +131,17 @@ pub async fn add_agent_handler(
     State(pool): State<SqlitePool>,
     Json(payload): Json<CreateAgent>,
 ) -> Result<Json<CreateAgentResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let created_at = Utc::now().to_rfc3339();
-
 
     let result = db_func::insert_agent(&pool, &payload).await;
 
     match result {
         Ok(query_result) => {
 
-            let folder_path = format!("./{}/{}", AGENTS_FOLDER, payload.name);
-            if let Err(e) = fs::create_dir_all(&folder_path).await {
-                error!("Failed to create folder for agent {}: {}", payload.name, e);
-            } else {
-                info!("Created folder for agent: {}", folder_path);
-            }
-
-            let readme_content = format!(r#"# {}
-- model : {},
-- created : {}
-"#, payload.name, payload.model, &created_at
-            );
-
-            let readme_path = format!("{}/readme.md", folder_path);
-            if let Err(e) = fs::write(&readme_path, &readme_content).await {
-                error!("Failed to create readme for agent {}: {}", payload.name, e);
-            } else {
-                info!("Created readme file for agent: {}", readme_path);
-            }
+            gen_agent_folder(&payload).await;
 
             Ok(Json(CreateAgentResponse {
                 id: query_result.last_insert_rowid(),
-                message: "Agent created successfully".to_string(),
+                message: MSG_SUCCESS.to_string(),
             }))
         }
         Err(e) => {
@@ -193,8 +173,6 @@ pub async fn remove_agent_handler(
             }
 
             let delete_result = db_func::delete_agent_by_id(&pool, payload.id).await;
-
-
             match delete_result {
                 Ok(_) => {
                     Ok(Json(RemoveAgentResponse {
@@ -230,4 +208,29 @@ pub async fn remove_agent_handler(
             ))
         }
     }
+}
+
+
+async fn gen_agent_folder(payload: &CreateAgent) {
+    let folder_path = format!("./{}/{}", AGENTS_FOLDER, payload.name);
+    if let Err(e) = fs::create_dir_all(&folder_path).await {
+        error!("Failed to create folder for agent {}: {}", payload.name, e);
+    } else {
+        info!("Created folder for agent: {}", folder_path);
+    }
+
+    let created_at = Utc::now().to_rfc3339();
+    let readme_content = format!(r#"# {}
+- model : {},
+- created : {}
+"#, payload.name, payload.model, &created_at
+    );
+
+    let readme_path = format!("{}/readme.md", folder_path);
+    if let Err(e) = fs::write(&readme_path, &readme_content).await {
+        error!("Failed to create readme for agent {}: {}", payload.name, e);
+    } else {
+        info!("Created readme file for agent: {}", readme_path);
+    }
+
 }
