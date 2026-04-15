@@ -10,6 +10,10 @@ use crate::command::Commands;
 mod http_fn;
 
 const DEFAULT_SERVER_URL: &str = "http://127.0.0.1:6411";
+const ERR_MSG_SERVER_NOT_RUNNING: &str = "the server doesn't run.";
+const MSG_FAIL_CREATE: &str = "Failed to create agent";
+const MSG_FAIL_REMOVE: &str = "Failed to remove agent";
+const MSG_INSTRUCTIONS: &str = "Use 'kcli --help' for usage information.";
 
 fn get_server_url() -> String {
     env::var("SERVER_URL").unwrap_or_else(|_| DEFAULT_SERVER_URL.to_string())
@@ -24,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     if !http_fn::check_server_open(&server_url).await {
-        println!("the server doesn't run.");
+        println!("{ERR_MSG_SERVER_NOT_RUNNING}");
         return Ok(())
     }
     process_command_line(cli, &server_url).await;
@@ -50,7 +54,7 @@ async fn process_command_line(cli: Cli, server_url: &str) {
                     println!("{} (ID: {})", response.message, response.id);
                 }
                 Err(e) => {
-                    eprintln!("Failed to create agent: {}", e);
+                    eprintln!("{}: {}", MSG_FAIL_CREATE, e);
                 }
             }
         }
@@ -60,12 +64,12 @@ async fn process_command_line(cli: Cli, server_url: &str) {
                     println!("{}", response.message);
                 }
                 Err(e) => {
-                    eprintln!("Failed to remove agent: {}", e);
+                    eprintln!("{}: {}", MSG_FAIL_REMOVE, e);
                 }
             }
         }
         None => {
-            println!("Use 'kcli --help' for usage information.");
+            println!("{MSG_INSTRUCTIONS}");
         }
     }
 }
