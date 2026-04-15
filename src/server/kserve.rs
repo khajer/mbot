@@ -17,20 +17,24 @@ use handler::remove_agent_handler;
 use handler::prompt_handler;
 
 const PORT: u16 = 6411;
+
 const SQLITE_FILENAME: &str = "agents.sqlite";
 const SQLITE_CONN: &str = "sqlite:agents.sqlite";
+const MSG_SERVER_STARTED: &str = "kserve HTTP server listening on ";
+const MSG_CREATED_DB: &str = "created file database";
+const MSG_DB_INITIALIZED: &str = "Database table initialized";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
 
     if !std::path::Path::new(SQLITE_FILENAME).exists() {
-        println!("created file dabase");
+        println!("{MSG_CREATED_DB}");
         std::fs::File::create(SQLITE_FILENAME)?;
     }
     let pool = SqlitePool::connect(SQLITE_CONN).await?;
     create_table_if_not_exists(&pool).await?;
-    info!("Database table initialized");
+    info!("{MSG_DB_INITIALIZED}");
 
     let app = Router::new()
         .route("/list", get(list_handler))
@@ -42,7 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], PORT).into();
 
-    info!("kserve HTTP server listening on {}", addr);
+    info!("{MSG_SERVER_STARTED} {addr}");
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
