@@ -1,4 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::Json};
+
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -6,9 +7,12 @@ use tokio::fs;
 use tracing::{error, info};
 
 use crate::db_func;
+use crate::call_agent;
+
 
 const AGENTS_FOLDER: &str = "workspace";
 const MSG_SUCCESS: &str = "Agent created successfully";
+
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Agent {
     pub id: i64,
@@ -62,6 +66,7 @@ pub(crate) struct ErrorResponse {
 #[derive(Deserialize)]
 pub(crate) struct DataAgent {
     id: i64,
+    prompt : String
 }
 
 #[derive(Serialize)]
@@ -87,8 +92,43 @@ pub async fn list_handler(State(pool): State<SqlitePool>) -> Result<Json<ListRes
 pub async fn prompt_handler(State(pool): State<SqlitePool>, Json(payload): Json<DataAgent>) -> Result<Json<AgentResponse>, (StatusCode, Json<ErrorResponse>)> {
     let agent_result = db_func::get_agent_by_id(&pool, payload.id).await;
 
+
     match agent_result {
         Ok(Some(agent)) => {
+            let agent_brand = "openai";
+
+            if agent_brand == "openai" {
+                match call_agent::call_openai(&payload.prompt, &agent.token, &agent.model).await {
+                    Ok(response) => {
+                        info!("OpenAI response: {}", response);
+                    }
+                    Err(e) => {
+                        error!("Failed to call OpenAI: {}", e);
+                        return Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to call OpenAI: {}", e),
+                            }),
+                        ));
+                    }
+                }
+            } else {
+                match call_agent::call_anthropic(&payload.prompt, &agent.token, &agent.model).await {
+                    Ok(response) => {
+                        info!("Anthropic response: {}", response);
+                    }
+                    Err(e) => {
+                        error!("Failed to call Anthropic: {}", e);
+                        return Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to call Anthropic: {}", e),
+                            }),
+                        ));
+                    }
+                }
+            }
+
             Ok(Json(AgentResponse { agent }))
         }
         Ok(None) => {
@@ -209,6 +249,7 @@ pub async fn remove_agent_handler(
         }
     }
 }
+
 
 
 async fn gen_agent_folder(payload: &CreateAgent) {
