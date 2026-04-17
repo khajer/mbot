@@ -23,6 +23,12 @@ struct Choice {
 struct Response {
     choices: Vec<Choice>,
 }
+
+const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
+const HEADER_AUTHORIZATION: &str = "Authorization";
+const HEADER_CONTENT_TYPE: &str = "Content-Type";
+const HEADER_CONTENT_TYPE_VALUE: &str = "application/json";
+
 pub async fn call_openai(prompt: &str, token: &str, model: &str) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
 
@@ -35,9 +41,9 @@ pub async fn call_openai(prompt: &str, token: &str, model: &str) -> Result<Strin
     };
 
     let response = client
-        .post("https://api.openai.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
+        .post(OPENAI_API_URL)
+        .header(HEADER_AUTHORIZATION, format!("Bearer {}", token))
+        .header(HEADER_CONTENT_TYPE, HEADER_CONTENT_TYPE_VALUE)
         .json(&request_body)
         .send()
         .await?;
