@@ -10,6 +10,7 @@ mod db_func;
 use db_func::create_table_if_not_exists;
 
 mod handler;
+mod call_agent;
 use handler::list_handler;
 use handler::process_handler;
 use handler::add_agent_handler;
