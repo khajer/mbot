@@ -7,9 +7,12 @@ use tokio::fs;
 use tracing::{error, info};
 
 use crate::db_func;
+use crate::call_agent;
+
 
 const AGENTS_FOLDER: &str = "workspace";
 const MSG_SUCCESS: &str = "Agent created successfully";
+
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Agent {
     pub id: i64,
@@ -92,7 +95,7 @@ pub async fn prompt_handler(State(pool): State<SqlitePool>, Json(payload): Json<
 
     match agent_result {
         Ok(Some(agent)) => {
-            match call_openai(&payload.prompt, &agent.token, &agent.model).await {
+            match call_agent::call_openai(&payload.prompt, &agent.token, &agent.model).await {
                 Ok(response) => {
                     info!("OpenAI response: {}", response);
                 }
@@ -222,60 +225,7 @@ pub async fn remove_agent_handler(
     }
 }
 
-async fn call_openai(prompt: &str, token: &str, model: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
 
-    #[derive(serde::Serialize, serde::Deserialize)]
-    struct Message {
-        role: String,
-        content: String,
-    }
-
-    #[derive(serde::Serialize)]
-    struct RequestBody {
-        model: String,
-        messages: Vec<Message>,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct Choice {
-        message: Message,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct Response {
-        choices: Vec<Choice>,
-    }
-
-    let request_body = RequestBody {
-        model: model.to_string(),
-        messages: vec![Message {
-            role: "user".to_string(),
-            content: prompt.to_string(),
-        }],
-    };
-
-    let response = client
-        .post("https://api.openai.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        let error_text = response.text().await?;
-        return Err(format!("OpenAI API error: {}", error_text).into());
-    }
-
-    let api_response: Response = response.json().await?;
-
-    let content = api_response.choices.first()
-        .map(|choice| choice.message.content.clone())
-        .ok_or("No response from OpenAI")?;
-
-    Ok(content)
-}
 
 async fn gen_agent_folder(payload: &CreateAgent) {
     let folder_path = format!("./{}/{}", AGENTS_FOLDER, payload.name);
