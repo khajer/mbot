@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 #[derive(Parser)]
 #[command(name = "kcli")]
@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 #[command(about = "KAgents CLI ", long_about = None)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
+    #[arg(short = 'U', long, help = "Check if client version is up to date")]
+    pub update: bool,
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -32,6 +34,8 @@ pub enum Commands {
         token: String,
         #[arg(short, long, help = "Agent model")]
         model: String,
+        #[arg(short, long, help = "Agent brand (e.g. openai, anthropic)")]
+        brand: String,
     },
     #[command(about = "remove agents")]
     Remove {
@@ -44,8 +48,10 @@ pub enum Commands {
 pub struct Agent {
     pub id: i64,
     pub name: String,
+    #[allow(dead_code)]
     pub token: String,
     pub model: String,
+    pub brand: String,
     pub created_at: String,
 }
 
@@ -53,8 +59,8 @@ impl std::fmt::Display for Agent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "ID: {} | Name: {} | Model: {} | Created: {}",
-            self.id, self.name, self.model, self.created_at
+            "ID: {} | Name: {} | Model: {} | Brand: {} | Created: {}",
+            self.id, self.name, self.model, self.brand, self.created_at
         )
     }
 }
