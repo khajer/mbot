@@ -9,7 +9,6 @@ use tracing::{error, info};
 use crate::db_func;
 use crate::call_agent;
 
-
 const AGENTS_FOLDER: &str = "workspace";
 const MSG_SUCCESS: &str = "Agent created successfully";
 
@@ -43,7 +42,6 @@ pub(crate) struct ListResponse {
 pub(crate) struct AgentResponse {
     agent: Agent,
 }
-
 
 #[derive(Deserialize)]
 pub(crate) struct CreateAgent {
@@ -94,7 +92,6 @@ pub async fn list_handler(State(pool): State<SqlitePool>) -> Result<Json<ListRes
 pub async fn prompt_handler(State(pool): State<SqlitePool>, Json(payload): Json<DataAgent>) -> Result<Json<AgentResponse>, (StatusCode, Json<ErrorResponse>)> {
     let agent_result = db_func::get_agent_by_id(&pool, payload.id).await;
 
-
     match agent_result {
         Ok(Some(agent)) => {
             if agent.brand == "openai" {
@@ -112,7 +109,7 @@ pub async fn prompt_handler(State(pool): State<SqlitePool>, Json(payload): Json<
                         ));
                     }
                 }
-            } else {
+            } else if agent.brand == "anthropic" {
                 match call_agent::call_anthropic(&payload.prompt, &agent.token, &agent.model).await {
                     Ok(response) => {
                         info!("Anthropic response: {}", response);
@@ -127,14 +124,27 @@ pub async fn prompt_handler(State(pool): State<SqlitePool>, Json(payload): Json<
                         ));
                     }
                 }
+            } else if agent.brand == "ollama" {
+                match call_agent::call_ollama(&payload.prompt, &agent.model).await {
+                    Ok(response) => {
+                        info!("Ollama response: {}", response);
+                    }
+                    Err(e) => {
+                        error!("Failed to call Ollama: {}", e);
+                        return Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse {
+                                error: format!("Failed to call Ollama: {}", e),
+                            }),
+                        ));
+                    }
+                }
             }
 
             if let Err(e) = db_func::insert_prompt(&pool, agent.id, &payload.prompt).await {
                 error!("Failed to save prompt: {}", e);
             }
-
             Ok(Json(AgentResponse { agent }))
-
         }
         Ok(None) => {
             Err((
@@ -154,8 +164,6 @@ pub async fn prompt_handler(State(pool): State<SqlitePool>, Json(payload): Json<
             ))
         }
     }
-
-
 }
 
 pub async fn process_handler(State(pool): State<SqlitePool>) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
@@ -255,8 +263,6 @@ pub async fn remove_agent_handler(
     }
 }
 
-
-
 async fn gen_agent_folder(payload: &CreateAgent) {
     let folder_path = format!("./{}/{}", AGENTS_FOLDER, payload.name);
     if let Err(e) = fs::create_dir_all(&folder_path).await {
@@ -278,7 +284,6 @@ async fn gen_agent_folder(payload: &CreateAgent) {
     } else {
         info!("Created readme file for agent: {}", readme_path);
     }
-
 }
 
 #[derive(Serialize)]
@@ -286,7 +291,6 @@ pub(crate) struct VersionResponse {
     version: String,
 }
 
-/// Returns the minimum compatible client version.
 pub async fn compatible_client_version_handler() -> Json<VersionResponse> {
     Json(VersionResponse {
         version: "1.0.0".to_string(),
